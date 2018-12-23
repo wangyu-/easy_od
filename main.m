@@ -9,6 +9,7 @@ padding_len=sub_code_len*partition_num-code_len;
 assert(mod(code_len+padding_len,partition_num)==0);
 
 code_length=code_len;
+sub_code_space=2^sub_code_len;
 randn('seed',0);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -24,7 +25,6 @@ W2T = -W1T * mean_value;
 W = [W1T'; W2T'];
 
 c = bsxfun(@ge, W(1 : end - 1, :)' * Xtraining, -W(end, :)');
-%base_binary_code = compactbit(c);
 %%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -47,3 +47,30 @@ for i=1:num_of_data
     end
 end
 
+
+R_not_used=zeros(partition_num,num_of_data,sub_code_space,'logical');
+for i=1:partition_num
+    for j=1:num_of_data
+        R_not_used(i,j,subcode_array(i,j)+1)=1;
+    end
+end
+
+
+R=cell(1,partition_num);
+for i=1:partition_num
+    tmp_R=zeros(num_of_data,sub_code_space,'logical');
+    for j=1:num_of_data
+        tmp_R(j,subcode_array(i,j)+1)=1;
+    end
+    R{1,i}=tmp_R;
+end
+
+E=cell(partition_num,partition_num);
+
+for i=1:partition_num
+    for j=1:partition_num
+        E{i,j}=R{1,i}'*R{1,j};
+    end
+end
+
+fprintf('all done\n');

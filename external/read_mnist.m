@@ -7,7 +7,7 @@ fread(fp, 1, 'int32');
 num_image = fread(fp, 1, 'int32=>int32');
 num_image = swapbytes(num_image);
 
-num_image = num_image/5; 
+num_image = num_image/100; 
 
 num_rows = fread(fp, 1, 'int32=>int32');
 num_rows = swapbytes(num_rows);
