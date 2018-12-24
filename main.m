@@ -1,6 +1,6 @@
 addpath('external/');
 
-code_len = 11;
+code_len = 16;
 partition_num = 3;
 
 sub_code_len=ceil(code_len/3);
@@ -74,3 +74,45 @@ for i=1:partition_num
 end
 
 fprintf('all done\n');
+
+cc=cell(partition_num,sub_code_space);
+
+for i=1:partition_num
+    for j=1:sub_code_space
+        sum=zeros(dim_of_data,1);
+        if E{i,i}(j,j)==0
+            cc{i,j}=sum;
+        else
+            
+            for k=1:num_of_data
+                sum=sum+R{1,i}(k,j)*train_set(:,k);
+            end
+            cc{i,j}=sum/E{i,i}(j,j);
+        end
+    end
+end
+
+
+ee=cell(partition_num,sub_code_space);
+
+for i=1:partition_num
+    for j=1:sub_code_space
+        sum=0;
+        if E{i,i}(j,j)==0
+            ee{i,j}=sum;
+        else
+            for k=1:num_of_data
+                sum=sum+R{1,i}(k,j)* norm(train_set(:,k)-cc{i,j});
+            end
+            ee{i,j}=sum/E{i,i}(j,j);
+        end
+    end
+end
+
+flat_E=cell2mat(E);
+inv_flat_E=pinv(flat_E);
+
+%tmp=(1:partition_num)*sub_code_space;
+invE=mat2cell(inv_flat_E,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space); 
+
+tmp=invE(1,:)
