@@ -1,6 +1,6 @@
 addpath('external/');
 
-code_len = 30;
+code_len = 15;
 partition_num = 3;
 
 sub_code_len=ceil(code_len/3);
@@ -215,8 +215,6 @@ end
 %}
 
 
-
-
   
 %{
 %THIS IS ONLY FOR SYMMETRIC
@@ -295,5 +293,21 @@ flat_DQ=inv_flat_E*flat_GQ;
 DQ=mat2cell(flat_DQ,ones(1,partition_num)*sub_code_space,ones(1,num_of_query));
 fprintf('after compute DQ\n')
 
-%G2=mat2cell(flat_G2,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space);
+ASD=zeros(num_of_data,num_of_query);
+for i=1:num_of_query
+    for j=1:num_of_data
+        ASD(j,i)=cal_asd(i,j,partition_num,DQ,subcode_array);
+    end
+end
+    
 fprintf('all done\n');
+
+function asd = cal_asd(q_idx,d_idx,partition_num,DQ,subcode_array)
+    asd=0;
+    for i=1:partition_num
+        tmp_code=subcode_array(i,d_idx)+1;
+        asd=asd+DQ{i,q_idx}(tmp_code,1);
+    end
+end
+
+%G2=mat2cell(flat_G2,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space);
