@@ -1,6 +1,6 @@
 addpath('external/');
 
-code_len = 16;
+code_len = 30;
 partition_num = 3;
 
 sub_code_len=ceil(code_len/3);
@@ -32,11 +32,15 @@ train_set=Xtraining;
 test_set=Xtest;
 dim_of_data = dim;
 num_of_data = size(train_set,2);
+dim_of_query=dim;
+num_of_query=size(test_set,2);
 
 tmp_code_array=zeros(padding_len,num_of_data,'logical');
 code_array=[c;tmp_code_array];
 
 subcode_array=ones(partition_num,num_of_data,'uint32');
+
+fprintf('before compute subcode_array\n');
 for i=1:num_of_data
     for j=1:partition_num
         tmp_code=0;
@@ -46,22 +50,26 @@ for i=1:num_of_data
         subcode_array(j,i)=tmp_code;
     end
 end
+fprintf('after compute subcode_array\n');
 
-
+%{
 R_not_used=zeros(partition_num,num_of_data,sub_code_space,'logical');
 for i=1:partition_num
     for j=1:num_of_data
         R_not_used(i,j,subcode_array(i,j)+1)=1;
     end
 end
-
+%}
+fprintf('before compute A\n');
 A=zeros(num_of_data,num_of_data);
 for i=1:num_of_data
     for j=1:num_of_data
-        A(i,j)=norm(train_set(:,i)-train_set(:,j));
+        A(i,j)=norm(train_set(:,i)-train_set(:,j))^2;
     end
 end
+fprintf('after compute A\n');
 
+fprintf('before compute R\n');
 R=cell(1,partition_num);
 for i=1:partition_num
     tmp_R=zeros(num_of_data,sub_code_space,'logical');
@@ -71,7 +79,7 @@ for i=1:partition_num
     end
     R{1,i}=tmp_R;
 end
-
+fprintf('after compute R\n');
 %{
 E=cell(partition_num,partition_num);
 
@@ -81,7 +89,7 @@ for i=1:partition_num
     end
 end
 %}
-
+fprintf('before compute array_E2\n');
 array_E2=zeros(sub_code_space,sub_code_space,partition_num,partition_num,'double');
 for i=1:num_of_data
     for j=1:partition_num
@@ -94,6 +102,9 @@ for i=1:num_of_data
     end
 end
 
+fprintf('after compute array_E2\n');
+
+
 E2=cell(partition_num,partition_num);
 for i=1:partition_num
     for j=1:partition_num
@@ -102,16 +113,6 @@ for i=1:partition_num
 end
 
 E=E2;
-
-G=cell(partition_num,partition_num);
-
-for i=1:partition_num
-    for j=1:partition_num
-        G{i,j}=R{1,i}'*A*R{1,j};
-    end
-end
-
-fprintf('all done\n');
 
 %{
 cc=cell(partition_num,sub_code_space);
@@ -131,6 +132,8 @@ for i=1:partition_num
 end
 %}
 
+fprintf('before compute array_cc2\n');
+
 array_cc2=zeros(dim_of_data,sub_code_space,partition_num);
 
 for i=1:partition_num
@@ -148,6 +151,8 @@ for i=1:partition_num
 end
 
 cc=cc2;
+
+fprintf('after compute array_cc2\n');
 
 %{
 ee=cell(partition_num,sub_code_space);
@@ -167,6 +172,8 @@ for i=1:partition_num
 end
 %}
 
+fprintf('before compute array_ee2\n');
+
 array_ee2=zeros(partition_num,sub_code_space);
 
 for i=1:partition_num
@@ -184,16 +191,57 @@ for i=1:partition_num
 end
 
 ee=ee2;
-
+fprintf('after compute array_ee2\n');
 
 flat_E=cell2mat(E);
+
+fprintf('before pinv(flat_E)\n');
 inv_flat_E=pinv(flat_E);
+fprintf('after pinv(flat_E)\n');
 
 %tmp=(1:partition_num)*sub_code_space;
-invE=mat2cell(inv_flat_E,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space); 
+inv_E=mat2cell(inv_flat_E,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space); 
 
 %tmp=invE(1,:)
 
+%{
+G=cell(partition_num,partition_num);
+
+for i=1:partition_num
+    for j=1:partition_num
+        G{i,j}=R{1,i}'*A*R{1,j};
+    end
+end
+%}
+
+
+
+
+  
+%{
+%THIS IS ONLY FOR SYMMETRIC
+G2=cell(partition_num,partition_num); 
+for i=1:partition_num
+    for j=1:partition_num
+        G2{i,j}=zeros(sub_code_space,sub_code_space);
+        for k=1:sub_code_space
+            for l=1:sub_code_space
+                G2{i,j}(k,l)=E{i,i}(k,k)*E{j,j}(l,l)*((norm(cc{i,k}-cc{j,l})^2)+ee{i,k}+ee{j,l});
+            end
+        end
+    end
+end
+
+G=G2;
+
+flat_G=cell2mat(G);
+
+flat_D=inv_flat_E*flat_G*inv_flat_E;
+
+D=mat2cell(flat_D,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space);
+%}
+
+%{
 D=cell(partition_num,partition_num);
 
 for i=1:partition_num
@@ -201,17 +249,51 @@ for i=1:partition_num
         D{i,j}=invE{i,j}'*G{i,j}*invE{i,j}';
     end
 end
+%}
 
-G2=cell(partition_num,partition_num); 
-for i=1:partition_num
+fprintf('before compute AQ\n');
+AQ=zeros(num_of_data,num_of_query);
+
+for i=1:num_of_data
+    for j=1:num_of_query
+        AQ(i,j)=norm(train_set(:,i)-test_set(:,j))^2;
+    end
+end
+fprintf('after compute AQ\n');
+
+
+%{
+GQ=cell(partition_num,num_of_query);
+for i=1:num_of_query
     for j=1:partition_num
-        G2{i,j}=zeros(sub_code_space,sub_code_space);
-        for k=1:sub_code_space
-            for l=1:sub_code_space
-                G2{i,j}(k,l)=E{i,i}(k,k)*E{j,j}(l,l)*(norm(cc{i,k}-cc{j,l})^2+ee{i,k}+ee{j,l});
-            end
-        end
+        GQ{j,i}=(AQ(:,i)'*R{1,j})';
     end
 end
 
+%}
+
+%flat_GQ=cell2mat(GQ);
+
+fprintf('before compute GQ2\n');
+GQ2=cell(partition_num,num_of_query);
+for i=1:num_of_query
+    for j=1:partition_num
+        GQ2{j,i}=zeros(sub_code_space,1);
+        for k=1:sub_code_space
+            GQ2{j,i}(k,1)=E{j,j}(k,k)*(norm(test_set(:,i)-cc{j,k})^2+ee{j,k});
+        end
+    end
+end
+fprintf('after compute GQ2\n');
+
+GQ=GQ2;
+
+flat_GQ=cell2mat(GQ);
+
+fprintf('before compute DQ\n');
+flat_DQ=inv_flat_E*flat_GQ;
+DQ=mat2cell(flat_DQ,ones(1,partition_num)*sub_code_space,ones(1,num_of_query));
+fprintf('after compute DQ\n')
+
 %G2=mat2cell(flat_G2,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space);
+fprintf('all done\n');
