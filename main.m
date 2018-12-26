@@ -1,20 +1,25 @@
 addpath('external/');
 
-code_len = 15;
+
+code_len = 24;
 partition_num = 3;
 
-sub_code_len=ceil(code_len/3);
+sub_code_len=ceil(code_len/partition_num);
 padding_len=sub_code_len*partition_num-code_len;
 
 assert(mod(code_len+padding_len,partition_num)==0);
 
 code_length=code_len;
 sub_code_space=2^sub_code_len;
+
 randn('seed',0);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('load data\n');
 gen_mnist_dataset;
+
+Xtraining=Xtraining(:,1:1000); %% wy add
+Xtest=Xtest(:,1:100);%% wy add
 
 dim = size(Xtraining, 1);
 
@@ -24,7 +29,10 @@ W1T = randn(code_length, dim);
 W2T = -W1T * mean_value;
 W = [W1T'; W2T'];
 
-c = bsxfun(@ge, W(1 : end - 1, :)' * Xtraining, -W(end, :)');
+c= bsxfun(@ge, W(1 : end - 1, :)' * Xtraining, -W(end, :)');
+c_data=c; %%wy add
+c = bsxfun(@ge, W(1 : end - 1, :)' * Xtest, -W(end, :)');
+c_query=c; %%wy add
 %%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -35,8 +43,13 @@ num_of_data = size(train_set,2);
 dim_of_query=dim;
 num_of_query=size(test_set,2);
 
+top_rank=0.1*num_of_data;
+
 tmp_code_array=zeros(padding_len,num_of_data,'logical');
-code_array=[c;tmp_code_array];
+code_array=[c_data;tmp_code_array];
+
+tmp_query_code_array=zeros(padding_len,num_of_query,'logical');
+query_code_array=[c_query;tmp_query_code_array];
 
 subcode_array=ones(partition_num,num_of_data,'uint32');
 
@@ -52,14 +65,20 @@ for i=1:num_of_data
 end
 fprintf('after compute subcode_array\n');
 
-%{
-R_not_used=zeros(partition_num,num_of_data,sub_code_space,'logical');
-for i=1:partition_num
-    for j=1:num_of_data
-        R_not_used(i,j,subcode_array(i,j)+1)=1;
+query_subcode_array=ones(partition_num,num_of_data,'uint32');
+
+fprintf('before compute query_subcode_array\n');
+for i=1:num_of_query
+    for j=1:partition_num
+        tmp_code=0;
+        for k=1:sub_code_len
+            tmp_code=tmp_code*2+uint32(query_code_array((j-1)*sub_code_len+k,i));
+        end 
+        query_subcode_array(j,i)=tmp_code;
     end
 end
-%}
+fprintf('after compute query_subcode_array\n');
+
 fprintf('before compute A\n');
 A=zeros(num_of_data,num_of_data);
 for i=1:num_of_data
@@ -216,7 +235,7 @@ end
 
 
   
-%{
+
 %THIS IS ONLY FOR SYMMETRIC
 G2=cell(partition_num,partition_num); 
 for i=1:partition_num
@@ -237,7 +256,7 @@ flat_G=cell2mat(G);
 flat_D=inv_flat_E*flat_G*inv_flat_E;
 
 D=mat2cell(flat_D,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space);
-%}
+
 
 %{
 D=cell(partition_num,partition_num);
@@ -300,8 +319,38 @@ for i=1:num_of_query
     end
 end
     
+SD=zeros(num_of_data,num_of_query);
+for i=1:num_of_query
+    for j=1:num_of_data
+        SD(j,i)=cal_sd(i,j,partition_num,D,subcode_array,query_subcode_array);
+    end
+end
+
+HM=zeros(num_of_data,num_of_query);
+for i=1:num_of_query
+    for j=1:num_of_data
+        HM(j,i)=cal_hm(i,j,partition_num,subcode_array,query_subcode_array);
+    end
+end
+
 fprintf('all done\n');
 
+ASD_rank=sort_by_colomn(ASD,num_of_data,num_of_query);
+SD_rank=sort_by_colomn(SD,num_of_data,num_of_query);
+HM_rank=sort_by_colomn(HM,num_of_data,num_of_query);
+AQ_rank=sort_by_colomn(AQ,num_of_data,num_of_query);
+
+map_AQ=cal_map(AQ_rank,AQ_rank,top_rank,num_of_query);
+map_HM=cal_map(AQ_rank,HM_rank,top_rank,num_of_query);
+map_ASD=cal_map(AQ_rank,ASD_rank,top_rank,num_of_query);
+map_SD=cal_map(AQ_rank,SD_rank,top_rank,num_of_query);
+
+function map=cal_map(base,input,top_rank,num_of_query)
+    map=0;
+    for i=1:num_of_query
+        map=map+ length(intersect(base(1:top_rank,i),input(1:top_rank,i)))*1.0/top_rank/num_of_query;
+    end
+end
 function asd = cal_asd(q_idx,d_idx,partition_num,DQ,subcode_array)
     asd=0;
     for i=1:partition_num
@@ -310,4 +359,31 @@ function asd = cal_asd(q_idx,d_idx,partition_num,DQ,subcode_array)
     end
 end
 
+function sd = cal_sd(q_idx,d_idx,partition_num,D,subcode_array,query_subcode_array)
+    sd=0;
+    for i=1:partition_num
+        tmp_code_q=query_subcode_array(i,q_idx)+1;
+        for j=1:partition_num
+            tmp_code_d=subcode_array(j,d_idx)+1;
+            sd=sd+D{i,j}(tmp_code_q,tmp_code_d);
+        end
+    end
+end
+
+function hm=cal_hm(q_idx,d_idx,partition_num,subcode_array,query_subcode_array)
+    hm=0;
+    for i=1:partition_num
+        tmp=bitxor(query_subcode_array(i,q_idx),subcode_array(i,d_idx));
+        hm=hm+sum(bitget(tmp,1:32));
+    end
+end
+
+function ret=sort_by_colomn(mat,r_num,c_num)
+    ret=zeros(r_num,c_num);
+    for i=1:c_num
+        tmp=mat(:,i);
+        [~,idx]=sort(tmp);
+        ret(:,i)=idx;
+    end
+end
 %G2=mat2cell(flat_G2,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space);
