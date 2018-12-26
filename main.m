@@ -1,7 +1,7 @@
 addpath('external/');
 
 
-code_len = 24;
+code_len = 15;
 partition_num = 3;
 
 sub_code_len=ceil(code_len/partition_num);
@@ -14,7 +14,8 @@ sub_code_space=2^sub_code_len;
 
 randn('seed',0);
 
-%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%code adapted from author of this paper %%%%%%
+
 fprintf('load data\n');
 gen_mnist_dataset;
 
@@ -33,7 +34,7 @@ c= bsxfun(@ge, W(1 : end - 1, :)' * Xtraining, -W(end, :)');
 c_data=c; %%wy add
 c = bsxfun(@ge, W(1 : end - 1, :)' * Xtest, -W(end, :)');
 c_query=c; %%wy add
-%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 train_set=Xtraining;
@@ -44,6 +45,7 @@ dim_of_query=dim;
 num_of_query=size(test_set,2);
 
 top_rank=0.1*num_of_data;
+top_mar_rank=0.5*num_of_data;
 
 tmp_code_array=zeros(padding_len,num_of_data,'logical');
 code_array=[c_data;tmp_code_array];
@@ -235,7 +237,6 @@ end
 
 
   
-
 %THIS IS ONLY FOR SYMMETRIC
 G2=cell(partition_num,partition_num); 
 for i=1:partition_num
@@ -253,10 +254,6 @@ G=G2;
 
 flat_G=cell2mat(G);
 
-flat_D=inv_flat_E*flat_G*inv_flat_E;
-
-D=mat2cell(flat_D,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space);
-
 
 %{
 D=cell(partition_num,partition_num);
@@ -267,6 +264,14 @@ for i=1:partition_num
     end
 end
 %}
+
+
+flat_D2=inv_flat_E*flat_G*inv_flat_E;
+
+D2=mat2cell(flat_D2,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space);
+
+D=D2;
+
 
 fprintf('before compute AQ\n');
 AQ=zeros(num_of_data,num_of_query);
@@ -312,26 +317,32 @@ flat_DQ=inv_flat_E*flat_GQ;
 DQ=mat2cell(flat_DQ,ones(1,partition_num)*sub_code_space,ones(1,num_of_query));
 fprintf('after compute DQ\n')
 
+tic
 ASD=zeros(num_of_data,num_of_query);
 for i=1:num_of_query
     for j=1:num_of_data
         ASD(j,i)=cal_asd(i,j,partition_num,DQ,subcode_array);
     end
 end
-    
+qt_ASD=toc;
+
+tic
 SD=zeros(num_of_data,num_of_query);
 for i=1:num_of_query
     for j=1:num_of_data
         SD(j,i)=cal_sd(i,j,partition_num,D,subcode_array,query_subcode_array);
     end
 end
+qt_SD=toc;
 
+tic
 HM=zeros(num_of_data,num_of_query);
 for i=1:num_of_query
     for j=1:num_of_data
         HM(j,i)=cal_hm(i,j,partition_num,subcode_array,query_subcode_array);
     end
 end
+qt_HM=toc;
 
 fprintf('all done\n');
 
@@ -345,10 +356,41 @@ map_HM=cal_map(AQ_rank,HM_rank,top_rank,num_of_query);
 map_ASD=cal_map(AQ_rank,ASD_rank,top_rank,num_of_query);
 map_SD=cal_map(AQ_rank,SD_rank,top_rank,num_of_query);
 
+mar_AQ=cal_mar(AQ_rank,AQ_rank,top_mar_rank,num_of_query,AQ);
+mar_HM=cal_mar(AQ_rank,HM_rank,top_mar_rank,num_of_query,AQ);
+mar_ASD=cal_mar(AQ_rank,ASD_rank,top_mar_rank,num_of_query,AQ);
+mar_SD=cal_mar(AQ_rank,SD_rank,top_mar_rank,num_of_query,AQ);
+
+hold 
+plot(mar_HM,'r','LineWidth',2);
+plot(mar_ASD,'g','LineWidth',2);
+plot(mar_SD,'b','LineWidth',2);
+legend('HM','ASD','SD');  
+
+xlabel('num of top points used for cal Mean Average Ratio') 
+ylabel('Mean Average Ratio') 
+
 function map=cal_map(base,input,top_rank,num_of_query)
     map=0;
     for i=1:num_of_query
         map=map+ length(intersect(base(1:top_rank,i),input(1:top_rank,i)))*1.0/top_rank/num_of_query;
+    end
+end
+
+function mar=cal_mar(base,input,top_mar_rank,num_of_query,AQ)
+    mar=zeros(1,top_mar_rank);
+    for i=1:num_of_query
+        for j=1:top_mar_rank
+            base_idx=base(j,i);
+            input_idx=input(j,i);
+            mar(1,j)=mar(1,j)+(AQ(input_idx,i)/AQ(base_idx,i))^0.5;
+        end
+    end
+    for i=2:top_mar_rank
+        mar(1,i)=mar(1,i)+mar(1,i-1);
+    end
+    for i=1:top_mar_rank
+        mar(1,i)=mar(1,i)/i/num_of_query;
     end
 end
 function asd = cal_asd(q_idx,d_idx,partition_num,DQ,subcode_array)
