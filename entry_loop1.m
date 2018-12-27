@@ -8,40 +8,30 @@ num_of_query_used=300;
 
 code_len = 16;
 
-map_HM_array=zeros(1,6);
-map_ASD_array=zeros(1,6);
-map_SD_array=zeros(1,6);
+map_HM_array=zeros(1,5);
+map_ASD_array=zeros(1,5);
+map_SD_array=zeros(1,5);
 
-qt_ASD_array=zeros(1,6);
-qt_SD_array=zeros(1,6);
-qt_HM_array=zeros(1,6);
+qt_ASD_array=zeros(1,5);
+qt_SD_array=zeros(1,5);
+qt_HM_array=zeros(1,5);
 
-tt_ASD_array=zeros(1,6);
-tt_SD_array=zeros(1,6);
+tt_ASD_array=zeros(1,5);
+tt_SD_array=zeros(1,5);
 
-for partition_num=2:6
+for iii=1:5
+    partition_num=iii+1;
     common;
-    map_HM_array(1,partition_num)=map_HM;
-    map_ASD_array(1,partition_num)=map_ASD;
-    map_SD_array(1,partition_num)=map_SD;
-    tt_ASD_array(1,partition_num)=tt_ASD;
-    tt_SD_array(1,partition_num)=tt_SD;
+    map_HM_array(1,iii)=map_HM;
+    map_ASD_array(1,iii)=map_ASD;
+    map_SD_array(1,iii)=map_SD;
+    tt_ASD_array(1,iii)=tt_ASD;
+    tt_SD_array(1,iii)=tt_SD;
     
-    qt_ASD_array(1,partition_num)=qt_ASD_total;
-    qt_SD_array(1,partition_num)=qt_SD;
-    qt_HM_array(1,partition_num)=qt_HM;
+    qt_ASD_array(1,iii)=qt_ASD_total;
+    qt_SD_array(1,iii)=qt_SD;
+    qt_HM_array(1,iii)=qt_HM;
 end
-
-map_HM_array(1,1)=map_HM_array(1,2);
-map_ASD_array(1,1)=map_ASD_array(1,2);
-map_SD_array(1,1)=map_SD_array(1,2);
-
-tt_ASD_array(1,1)=tt_ASD_array(1,2);
-tt_SD_array(1,1)=tt_SD_array(1,2);
-
-qt_ASD_array(1,1)=qt_ASD_array(1,2);
-qt_SD_array(1,1)=qt_SD_array(1,2);
-qt_HM_array(1,1)=qt_HM_array(1,2);
 
 figure(1);
 hold on 
