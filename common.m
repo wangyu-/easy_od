@@ -1,9 +1,3 @@
-addpath('external/');
-
-
-code_len = 15;
-partition_num = 3;
-
 sub_code_len=ceil(code_len/partition_num);
 padding_len=sub_code_len*partition_num-code_len;
 
@@ -14,13 +8,13 @@ sub_code_space=2^sub_code_len;
 
 randn('seed',0);
 
-%%%%%%code adapted from author of this paper %%%%%%
+%%%%%%code adapted from author of this paper begin%%%%%%
 
 fprintf('load data\n');
 gen_mnist_dataset;
 
-Xtraining=Xtraining(:,1:1000); %% wy add
-Xtest=Xtest(:,1:100);%% wy add
+Xtraining=Xtraining(:,1:num_of_data_used); %% wy add
+Xtest=Xtest(:,1:num_of_query_used);%% wy add
 
 dim = size(Xtraining, 1);
 
@@ -34,7 +28,7 @@ c= bsxfun(@ge, W(1 : end - 1, :)' * Xtraining, -W(end, :)');
 c_data=c; %%wy add
 c = bsxfun(@ge, W(1 : end - 1, :)' * Xtest, -W(end, :)');
 c_query=c; %%wy add
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%code adapted from author of this paper end%%%%%%%%%
 
 
 train_set=Xtraining;
@@ -44,8 +38,8 @@ num_of_data = size(train_set,2);
 dim_of_query=dim;
 num_of_query=size(test_set,2);
 
-top_rank=0.1*num_of_data;
-top_mar_rank=0.5*num_of_data;
+top_rank=map_top_ratio*num_of_data;
+top_mar_rank=mar_top_ratio*num_of_data;
 
 tmp_code_array=zeros(padding_len,num_of_data,'logical');
 code_array=[c_data;tmp_code_array];
@@ -67,7 +61,16 @@ for i=1:num_of_data
 end
 fprintf('after compute subcode_array\n');
 
-query_subcode_array=ones(partition_num,num_of_data,'uint32');
+whole_code_array=ones(1,num_of_data,'uint64');
+for i=1:num_of_data
+        tmp_code=0;
+        for k=1:padding_len+code_len
+            tmp_code=tmp_code*2+uint32(code_array(k,i));
+        end 
+        whole_code_array(1,i)=tmp_code;
+end
+
+query_subcode_array=ones(partition_num,num_of_query,'uint32');
 
 fprintf('before compute query_subcode_array\n');
 for i=1:num_of_query
@@ -81,6 +84,17 @@ for i=1:num_of_query
 end
 fprintf('after compute query_subcode_array\n');
 
+whole_query_code_array=ones(1,num_of_query,'uint64');
+for i=1:num_of_query
+        tmp_code=0;
+        for k=1:padding_len+code_len
+            tmp_code=tmp_code*2+uint32(query_code_array(k,i));
+        end 
+        whole_query_code_array(1,i)=tmp_code;
+end
+
+
+tic
 fprintf('before compute A\n');
 A=zeros(num_of_data,num_of_data);
 for i=1:num_of_data
@@ -88,8 +102,22 @@ for i=1:num_of_data
         A(i,j)=norm(train_set(:,i)-train_set(:,j))^2;
     end
 end
+
 fprintf('after compute A\n');
 
+fprintf('before compute AQ\n');
+AQ=zeros(num_of_data,num_of_query);
+
+for i=1:num_of_data
+    for j=1:num_of_query
+        AQ(i,j)=norm(train_set(:,i)-test_set(:,j))^2;
+    end
+end
+fprintf('after compute AQ\n');
+
+tt_A=toc;
+
+tic;
 fprintf('before compute R\n');
 R=cell(1,partition_num);
 for i=1:partition_num
@@ -101,6 +129,8 @@ for i=1:partition_num
     R{1,i}=tmp_R;
 end
 fprintf('after compute R\n');
+tt_R=toc;
+
 %{
 E=cell(partition_num,partition_num);
 
@@ -110,6 +140,7 @@ for i=1:partition_num
     end
 end
 %}
+tic
 fprintf('before compute array_E2\n');
 array_E2=zeros(sub_code_space,sub_code_space,partition_num,partition_num,'double');
 for i=1:num_of_data
@@ -124,7 +155,6 @@ for i=1:num_of_data
 end
 
 fprintf('after compute array_E2\n');
-
 
 E2=cell(partition_num,partition_num);
 for i=1:partition_num
@@ -223,6 +253,7 @@ fprintf('after pinv(flat_E)\n');
 %tmp=(1:partition_num)*sub_code_space;
 inv_E=mat2cell(inv_flat_E,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*sub_code_space); 
 
+tt_EcceeinvE=toc;
 %tmp=invE(1,:)
 
 %{
@@ -236,7 +267,8 @@ end
 %}
 
 
-  
+tic
+
 %THIS IS ONLY FOR SYMMETRIC
 G2=cell(partition_num,partition_num); 
 for i=1:partition_num
@@ -272,16 +304,8 @@ D2=mat2cell(flat_D2,ones(1,partition_num)*sub_code_space,ones(1,partition_num)*s
 
 D=D2;
 
+tt_GD=toc;
 
-fprintf('before compute AQ\n');
-AQ=zeros(num_of_data,num_of_query);
-
-for i=1:num_of_data
-    for j=1:num_of_query
-        AQ(i,j)=norm(train_set(:,i)-test_set(:,j))^2;
-    end
-end
-fprintf('after compute AQ\n');
 
 
 %{
@@ -295,7 +319,7 @@ end
 %}
 
 %flat_GQ=cell2mat(GQ);
-
+tic
 fprintf('before compute GQ2\n');
 GQ2=cell(partition_num,num_of_query);
 for i=1:num_of_query
@@ -312,12 +336,14 @@ GQ=GQ2;
 
 flat_GQ=cell2mat(GQ);
 
+tt_GQ=toc;
+
+tic
 fprintf('before compute DQ\n');
 flat_DQ=inv_flat_E*flat_GQ;
 DQ=mat2cell(flat_DQ,ones(1,partition_num)*sub_code_space,ones(1,num_of_query));
 fprintf('after compute DQ\n')
 
-tic
 ASD=zeros(num_of_data,num_of_query);
 for i=1:num_of_query
     for j=1:num_of_data
@@ -325,6 +351,10 @@ for i=1:num_of_query
     end
 end
 qt_ASD=toc;
+
+tt_ASD=tt_EcceeinvE+tt_GD;
+
+qt_ASD_total=qt_ASD+tt_GQ;
 
 tic
 SD=zeros(num_of_data,num_of_query);
@@ -334,12 +364,13 @@ for i=1:num_of_query
     end
 end
 qt_SD=toc;
+tt_SD=tt_EcceeinvE+tt_GQ;
 
 tic
 HM=zeros(num_of_data,num_of_query);
 for i=1:num_of_query
     for j=1:num_of_data
-        HM(j,i)=cal_hm(i,j,partition_num,subcode_array,query_subcode_array);
+        HM(j,i)=cal_hm(i,j,partition_num,whole_code_array,whole_query_code_array);
     end
 end
 qt_HM=toc;
@@ -360,15 +391,6 @@ mar_AQ=cal_mar(AQ_rank,AQ_rank,top_mar_rank,num_of_query,AQ);
 mar_HM=cal_mar(AQ_rank,HM_rank,top_mar_rank,num_of_query,AQ);
 mar_ASD=cal_mar(AQ_rank,ASD_rank,top_mar_rank,num_of_query,AQ);
 mar_SD=cal_mar(AQ_rank,SD_rank,top_mar_rank,num_of_query,AQ);
-
-hold 
-plot(mar_HM,'r','LineWidth',2);
-plot(mar_ASD,'g','LineWidth',2);
-plot(mar_SD,'b','LineWidth',2);
-legend('HM','ASD','SD');  
-
-xlabel('num of top points used for cal Mean Average Ratio') 
-ylabel('Mean Average Ratio') 
 
 function map=cal_map(base,input,top_rank,num_of_query)
     map=0;
@@ -412,12 +434,16 @@ function sd = cal_sd(q_idx,d_idx,partition_num,D,subcode_array,query_subcode_arr
     end
 end
 
-function hm=cal_hm(q_idx,d_idx,partition_num,subcode_array,query_subcode_array)
+function hm=cal_hm(q_idx,d_idx,partition_num,whole_code_array,whole_query_code_array)
     hm=0;
+    %{
     for i=1:partition_num
         tmp=bitxor(query_subcode_array(i,q_idx),subcode_array(i,d_idx));
         hm=hm+sum(bitget(tmp,1:32));
     end
+    %}
+    tmp=bitxor(whole_query_code_array(1,q_idx),whole_code_array(1,d_idx));
+    hm=sum(bitget(tmp,1:64));
 end
 
 function ret=sort_by_colomn(mat,r_num,c_num)
