@@ -11,7 +11,7 @@ num_of_query_used=300;
 code_len = 16;
 
 partition_num_list=[2,3,4,5,6];
-list_len=length(partition_list);
+list_len=length(partition_num_list);
 
 map_HM_array=zeros(1,list_len);
 map_ASD_array=zeros(1,list_len);
@@ -41,9 +41,9 @@ end
 
 figure(1);
 hold on 
-plot(partition_list,map_HM_array,'r-o','LineWidth',2);
-plot(partition_list,map_ASD_array,'g-o','LineWidth',2);
-plot(partition_list,map_SD_array,'b-o','LineWidth',2);
+plot(partition_num_list,map_HM_array,'r-o','LineWidth',2);
+plot(partition_num_list,map_ASD_array,'g-o','LineWidth',2);
+plot(partition_num_list,map_SD_array,'b-o','LineWidth',2);
 legend('HM','ASD','SD');  
 xlabel('Num of Partitions') 
 ylabel('Mean Avarage Precision') 
@@ -51,8 +51,8 @@ ylabel('Mean Avarage Precision')
 
 figure(2);
 hold on 
-plot(partition_list,tt_ASD_array,'r-o','LineWidth',2);
-plot(partition_list,tt_SD_array,'g-o','LineWidth',2);
+plot(partition_num_list,tt_ASD_array,'r-o','LineWidth',2);
+plot(partition_num_list,tt_SD_array,'g-o','LineWidth',2);
 legend('ASD','SD');  
 xlabel('Num of Partitions') 
 ylabel('Training Time') 
@@ -60,9 +60,9 @@ ylabel('Training Time')
 
 figure(3);
 hold on 
-plot(partition_list,qt_HM_array,'r-o','LineWidth',2);
-plot(partition_list,qt_ASD_array,'g-o','LineWidth',2);
-plot(partition_list, qt_SD_array,'b-o','LineWidth',2);
+plot(partition_num_list,qt_HM_array,'r-o','LineWidth',2);
+plot(partition_num_list,qt_ASD_array,'g-o','LineWidth',2);
+plot(partition_num_list, qt_SD_array,'b-o','LineWidth',2);
 legend('HM','ASD','SD'); 
 xlabel('Num of Partitions'); 
 ylabel('Query Time');
