@@ -1,5 +1,7 @@
 addpath('external/');
 
+close all;
+
 map_top_ratio=0.1;
 mar_top_ratio=0.5;
 

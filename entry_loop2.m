@@ -1,5 +1,7 @@
 addpath('external/');
 
+close all;
+
 map_top_ratio=0.2;
 mar_top_ratio=0.5;
 
@@ -23,7 +25,8 @@ for idx=1:4
     map_SD_array(1,code_len)=map_SD;
 end
 
-% figure(1);
+figure(1);
+
 hold on 
 plot(map_HM_array,'.');
 plot(map_ASD_array,'.');

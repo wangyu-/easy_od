@@ -1,5 +1,6 @@
 addpath('external/');
 
+close all;
 
 code_len = 4;
 partition_num = 3;
@@ -12,6 +13,7 @@ num_of_query_used=200;
 
 common;
 
+figure(1);
 hold 
 plot(mar_HM,'r','LineWidth',2);
 plot(mar_ASD,'g','LineWidth',2);
