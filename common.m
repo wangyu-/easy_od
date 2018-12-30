@@ -13,6 +13,8 @@ randn('seed',0);
 fprintf('load data\n');
 gen_mnist_dataset;
 
+full_Xtraining=Xtraining; %% wy add
+full_Xtest=Xtest; %% wy add
 Xtraining=Xtraining(:,1:num_of_data_used); %% wy add
 Xtest=Xtest(:,1:num_of_query_used);%% wy add
 

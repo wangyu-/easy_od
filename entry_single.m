@@ -2,14 +2,14 @@ addpath('external/');
 
 close all;
 
-code_len = 4;
+code_len = 15;
 partition_num = 3;
 
 map_top_ratio=0.1;
 mar_top_ratio=0.5;
 
-num_of_data_used=1000;
-num_of_query_used=200;
+num_of_data_used=2000;
+num_of_query_used=300;
 
 common;
 
@@ -20,5 +20,5 @@ plot(mar_ASD,'g','LineWidth',2);
 plot(mar_SD,'b','LineWidth',2);
 legend('HM','ASD','SD');  
 
-xlabel('num of top points used for cal Mean Average Ratio') 
+xlabel('Num of Retrived Points') 
 ylabel('Mean Average Ratio') 
